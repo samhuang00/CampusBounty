@@ -1,13 +1,42 @@
 "use client";
 
 import { useEffect, useState } from "react";
-export default function EarnDashboardPage() {
-  const [paymentReleased, setPaymentReleased] = useState(false);
+import { useRouter } from "next/navigation";
+import {
+  getCurrentUser,
+  getLaundryTaskStatus,
+  type LaundryTaskStatus,
+} from "@/lib/campusBountyState";
 
-useEffect(() => {
-  const taskStatus = localStorage.getItem("laundryTaskStatus");
-  setPaymentReleased(taskStatus === "completed");
-}, []);
+export default function EarnDashboardPage() {
+  const router = useRouter();
+
+  const [taskStatus, setTaskStatus] =
+    useState<LaundryTaskStatus>("open");
+
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    if (getCurrentUser() !== "sam") {
+      router.replace("/login");
+      return;
+    }
+
+    setTaskStatus(getLaundryTaskStatus());
+    setIsReady(true);
+  }, [router]);
+
+  if (!isReady) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#f7f8f5]">
+        <p className="font-medium text-slate-600">
+          Loading your dashboard...
+        </p>
+      </main>
+    );
+  }
+
+  const paymentReleased = taskStatus === "completed";
   return (
     <main className="min-h-screen bg-[#f7f8f5] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -102,33 +131,35 @@ useEffect(() => {
     </a>
   </section>
 )}
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Pending applications</p>
-            <p className="mt-2 text-3xl font-bold">
-  {paymentReleased ? 0 : 1}
-</p>
-          </div>
+<div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <p className="text-sm text-slate-500">Pending applications</p>
+  <p className="mt-2 text-3xl font-bold">
+    {taskStatus === "applied" ? 1 : 0}
+  </p>
+</div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Active TaskCards</p>
-            <p className="mt-2 text-3xl font-bold">0</p>
-          </div>
+<div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <p className="text-sm text-slate-500">Active TaskCards</p>
+  <p className="mt-2 text-3xl font-bold">
+    {taskStatus === "active" || taskStatus === "submitted" ? 1 : 0}
+  </p>
+</div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Completed TaskCards</p>
-            <p className="mt-2 text-3xl font-bold">
-  {paymentReleased ? 9 : 8}
-</p>
-          </div>
+<div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <p className="text-sm text-slate-500">Completed TaskCards</p>
+  <p className="mt-2 text-3xl font-bold">
+    {taskStatus === "completed" ? 9 : 8}
+  </p>
+</div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-sm text-slate-500">Total earnings</p>
-            <p className="mt-2 text-3xl font-bold">
-  {paymentReleased ? "$144" : "$126"}
-</p>
-          </div>
-        </div>
+<div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+  <p className="text-sm text-slate-500">Total earnings</p>
+  <p className="mt-2 text-3xl font-bold">
+    {taskStatus === "completed" ? "$144" : "$126"}
+  </p>
+</div>
+</div>
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_340px]">
           <div>
@@ -140,16 +171,25 @@ useEffect(() => {
               </a>
             </div>
 
+{["applied", "selected", "funded"].includes(taskStatus) && (
             <article className="mt-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col justify-between gap-5 sm:flex-row">
                 <div>
                   <div className="flex flex-wrap items-center gap-3">
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
-                      Selected · Payment secured
+                      {taskStatus === "applied"
+  ? "Pending review"
+  : taskStatus === "selected"
+    ? "Selected · Awaiting payment"
+    : "Selected · Payment secured"}
                     </span>
 
                     <span className="text-sm text-slate-500">
-                      Action required
+                      {taskStatus === "applied"
+  ? "Olivia is reviewing"
+  : taskStatus === "selected"
+    ? "Waiting for Olivia"
+    : "Action required"}
                     </span>
                   </div>
 
@@ -174,14 +214,23 @@ useEffect(() => {
                   </div>
                 </div>
 
-                <a
-                  href="/tasks/laundry-help/agreement/worker"
-                  className="self-start rounded-xl border border-slate-300 px-4 py-2 font-bold hover:border-emerald-700 hover:text-emerald-700"
-                >
-                  Review funded offer
-                </a>
+                {taskStatus === "funded" ? (
+  <a
+    href="/tasks/laundry-help/agreement/worker"
+    className="rounded-xl border border-slate-300 px-5 py-3 text-center font-bold hover:border-emerald-600"
+  >
+    Review funded offer
+  </a>
+) : (
+  <span className="rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-center font-bold text-slate-500">
+    {taskStatus === "applied"
+      ? "Waiting for Olivia"
+      : "Waiting for payment"}
+  </span>
+)}
               </div>
             </article>
+)}
 
             <div className="mt-10 flex items-center justify-between">
               <h2 className="text-2xl font-bold">Completed TaskCards</h2>
@@ -190,7 +239,37 @@ useEffect(() => {
                 View history
               </a>
             </div>
+            
+{taskStatus === "completed" && (
+  <article className="mt-5 rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm">
+    <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+      <div>
+        <p className="font-bold text-emerald-700">Completed</p>
 
+        <h3 className="mt-3 text-xl font-bold">
+          Wash, dry, and fold one load of laundry
+        </h3>
+
+        <p className="mt-2 text-slate-600">
+          Completed today · Olivia approved your work
+        </p>
+      </div>
+
+      <div className="sm:text-right">
+        <p className="text-lg font-bold text-emerald-700">
+          +$18 earned
+        </p>
+
+        <a
+          href="/tasks/laundry-help/active"
+          className="mt-2 inline-block font-bold text-emerald-700 hover:text-emerald-900"
+        >
+          View completed task →
+        </a>
+      </div>
+    </div>
+  </article>
+)}
             <article className="mt-5 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-col justify-between gap-4 sm:flex-row">
                 <div>

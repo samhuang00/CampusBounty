@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { setLaundryTaskStatus } from "@/lib/campusBountyState";
 
 export default function WorkerAgreementPage() {
   const router = useRouter();
@@ -10,6 +11,7 @@ export default function WorkerAgreementPage() {
   function acceptTaskCard() {
     if (!agreementAccepted) return;
 
+    setLaundryTaskStatus("active");
     router.push("/tasks/laundry-help/active");
   }
 
@@ -110,7 +112,7 @@ export default function WorkerAgreementPage() {
 
                 <div>
                   <p className="text-sm text-slate-500">Estimated time</p>
-                  <p className="mt-1 font-bold">1.5–2 hours</p>
+                  <p className="mt-1 font-bold">1.5-2 hours</p>
                 </div>
               </div>
             </section>

@@ -1,4 +1,36 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  getCurrentUser,
+  setLaundryTaskStatus,
+} from "@/lib/campusBountyState";
 export default function ApplyForLaundryTaskPage() {
+    const router = useRouter();
+const [isAuthorized, setIsAuthorized] = useState(false);
+
+useEffect(() => {
+  const currentUser = getCurrentUser();
+
+  if (currentUser !== "sam") {
+    router.replace("/login?next=/tasks/laundry-help/apply");
+    return;
+  }
+
+  setIsAuthorized(true);
+}, [router]);
+function handleSubmitApplication() {
+  setLaundryTaskStatus("applied");
+  router.push("/tasks/laundry-help/apply/success");
+}
+if (!isAuthorized) {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f7f8f5]">
+      <p className="font-medium text-slate-600">Checking your account...</p>
+    </main>
+  );
+}
   return (
     <main className="min-h-screen bg-[#f7f8f5] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
@@ -145,12 +177,13 @@ export default function ApplyForLaundryTaskPage() {
                 </span>
               </label>
 
-              <a
-  href="/tasks/laundry-help/apply/success"
+              <button
+  type="button"
+  onClick={handleSubmitApplication}
   className="block w-full rounded-xl bg-emerald-600 px-6 py-4 text-center font-bold text-white transition hover:bg-emerald-700"
 >
   Submit application
-</a>
+</button>
             </form>
           </div>
 

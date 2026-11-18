@@ -1,3 +1,6 @@
+"use client";
+
+import { setLaundryTaskStatus } from "@/lib/campusBountyState";
 const applicants = [
   {
     name: "Sam Huang",
@@ -104,6 +107,11 @@ export default function ApplicantsPage() {
                 </div>
 
                 <a
+                onClick={() => {
+  if (applicant.name === "Sam Huang") {
+    setLaundryTaskStatus("selected");
+  }
+}}
                   href={
                     applicant.name === "Sam Huang"
                       ? "/tasks/laundry-help/agreement"

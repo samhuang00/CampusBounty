@@ -79,6 +79,12 @@ export default function Home() {
            <a href="/login" className="font-medium hover:text-emerald-700">
   Log in
 </a>
+<a
+  href="/signup"
+  className="rounded-xl bg-emerald-600 px-5 py-3 font-bold text-white transition hover:bg-emerald-700"
+>
+  Sign up
+</a>
             <button className="rounded-lg border border-slate-300 px-4 py-2 font-medium">
               Menu ☰
             </button>

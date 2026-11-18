@@ -1,85 +1,114 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { loginAs, type DemoUserId } from "@/lib/campusBountyState";
+
 export default function LoginPage() {
+  const router = useRouter();
+
+  function handleLogin(user: DemoUserId) {
+    loginAs(user);
+
+    const nextPage = new URLSearchParams(window.location.search).get("next");
+
+    if (user === "sam" && nextPage) {
+      router.push(nextPage);
+      return;
+    }
+
+    router.push(user === "sam" ? "/dashboard/earn" : "/dashboard/post");
+  }
+function resetDemo() {
+  localStorage.clear();
+  window.location.href = "/";
+}
+
   return (
     <main className="min-h-screen bg-[#f7f8f5] text-slate-950">
       <header className="border-b border-slate-200 bg-white">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+        <nav className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <a href="/" className="text-xl font-bold">
             CampusBounty
           </a>
 
-          <a
-            href="/tasks"
-            className="font-medium text-slate-600 hover:text-emerald-700"
-          >
+          <a href="/tasks" className="font-medium text-slate-600">
             Browse TaskCards
           </a>
         </nav>
       </header>
 
-      <section className="mx-auto flex max-w-md px-6 py-16">
-        <div className="w-full rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-sm font-bold uppercase tracking-wider text-emerald-700">
-            Student marketplace
+      <section className="mx-auto max-w-3xl px-6 py-16">
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <p className="text-sm font-bold uppercase tracking-widest text-emerald-700">
+            Demo login
           </p>
 
-          <h1 className="mt-3 text-3xl font-bold">Welcome back</h1>
+          <h1 className="mt-2 text-4xl font-bold tracking-tight">
+            Choose who you are
+          </h1>
 
-          <p className="mt-3 leading-7 text-slate-600">
-            Log in with your verified university account.
+          <p className="mt-3 text-lg text-slate-600">
+            Sign in as either side of the CampusBounty TaskCard flow.
           </p>
 
-          <div className="mt-8 space-y-5">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-bold text-slate-700"
-              >
-                University email
-              </label>
-
-              <input
-                id="email"
-                type="email"
-                placeholder="name@usc.edu"
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="password"
-                className="block text-sm font-bold text-slate-700"
-              >
-                Password
-              </label>
-
-              <input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-100"
-              />
-            </div>
-
-            <a
-              href="/choose-mode"
-              className="block w-full rounded-xl bg-emerald-600 px-6 py-4 text-center font-bold text-white hover:bg-emerald-700"
+          <div className="mt-8 grid gap-5 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => handleLogin("sam")}
+              className="rounded-2xl border-2 border-slate-200 p-6 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
             >
-              Log in
-            </a>
-          </div>
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-xl font-bold text-emerald-800">
+                SH
+              </div>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
-            New to CampusBounty?{" "}
-            <a href="#" className="font-bold text-emerald-700">
-              Create an account
-            </a>
+              <h2 className="mt-5 text-2xl font-bold">Sam Huang</h2>
+
+              <p className="mt-1 font-bold text-emerald-700">Earn Mode</p>
+
+              <p className="mt-3 text-slate-600">
+                Apply for TaskCards, accept funded offers, submit work and
+                receive payment.
+              </p>
+
+              <p className="mt-5 font-bold text-emerald-700">
+                Continue as Sam →
+              </p>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleLogin("olivia")}
+              className="rounded-2xl border-2 border-slate-200 p-6 text-left transition hover:border-emerald-500 hover:bg-emerald-50"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-100 text-xl font-bold text-emerald-800">
+                OP
+              </div>
+
+              <h2 className="mt-5 text-2xl font-bold">Olivia Parker</h2>
+
+              <p className="mt-1 font-bold text-emerald-700">Post Mode</p>
+
+              <p className="mt-3 text-slate-600">
+                Review applicants, select a worker, secure payment and approve
+                completed work.
+              </p>
+
+              <p className="mt-5 font-bold text-emerald-700">
+                Continue as Olivia →
+              </p>
+            </button>
+          </div>
+<button
+  type="button"
+  onClick={resetDemo}
+  className="mt-6 w-full rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700"
+>
+  Reset demo
+</button>
+          <p className="mt-8 text-center text-sm text-slate-500">
+            These demo accounts let judges experience both sides of the
+            marketplace.
           </p>
-
-          <div className="mt-7 rounded-xl bg-emerald-50 p-4 text-sm leading-6 text-emerald-900">
-            For this prototype, any email and password will continue to Sam’s
-            demo account.
-          </div>
         </div>
       </section>
     </main>
