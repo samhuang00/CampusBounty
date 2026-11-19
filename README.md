@@ -12,6 +12,11 @@ It transforms the invisible economy already operating around every university in
 
 [Launch CampusBounty](https://campus-bounty.vercel.app)
 
+
+## Demo Video
+
+[Watch the CampusBounty demo](https://www.youtube.com/watch?v=oTkXHZaxYdI)
+
 ## The Problem
 
 Students constantly need help with small, immediate tasks: doing laundry, picking up packages, buying groceries, assembling furniture, delivering items, or providing tutoring.
