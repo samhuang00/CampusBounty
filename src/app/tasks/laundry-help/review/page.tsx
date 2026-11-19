@@ -2,30 +2,26 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { address, lamports } from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
 import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
 import { useClient } from "@solana/react";
 import WalletConnectButton from "@/app/components/wallet-connect-button";
 import type { AppClient } from "@/app/providers";
 import {
   getCurrentUser,
+  getEscrowRequester,
+  getEscrowTaskId,
   setLaundryTaskStatus,
 } from "@/lib/campusBountyState";
+import {
+  getEscrowPda,
+  getReleaseEscrowInstruction,
+  isEscrowProgramConfigured,
+  REQUESTER_REFUND,
+  WORKER_ADDRESS,
+  WORKER_PAYMENT,
+} from "@/lib/solanaEscrow";
 
 type ReleaseStatus = "idle" | "releasing" | "released";
-
-const ESCROW_ADDRESS =
-  "DdAidKA4KMx9b5Q1avZCBv9m1iXNvtw1NFVC7KqgCY3d";
-
-const SAM_ADDRESS =
-  "93P7YGVKFQZiSzLoE9Eg3D5rDzsgKxAYWmgCC5xg32RG";
-
-const OLIVIA_ADDRESS =
-  "WH3iyZW6KyHJiCGsX2vkTM6Up769o6BCMbgteLjPZHE";
-
-const WORKER_PAYMENT = 18_000_000n;
-const REQUESTER_REFUND = 2_500_000n;
 
 function shortenAddress(walletAddress: string) {
   return `${walletAddress.slice(0, 4)}...${walletAddress.slice(-4)}`;
@@ -44,6 +40,10 @@ export default function ReviewLaundryTaskPage() {
     useState<string | null>(null);
   const [transactionError, setTransactionError] =
     useState<string | null>(null);
+  const [taskId, setTaskId] = useState<bigint | null>(null);
+  const [requesterAddress, setRequesterAddress] =
+    useState<string | null>(null);
+  const [escrowPda, setEscrowPda] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -53,6 +53,25 @@ export default function ReviewLaundryTaskPage() {
         "/login?next=/tasks/laundry-help/review",
       );
       return;
+    }
+
+    const storedTaskId = getEscrowTaskId();
+    const storedRequester = getEscrowRequester();
+    setTaskId(storedTaskId);
+    setRequesterAddress(storedRequester);
+
+    if (
+      storedTaskId !== null &&
+      storedRequester &&
+      isEscrowProgramConfigured()
+    ) {
+      getEscrowPda(storedTaskId, storedRequester)
+        .then((derivedAddress) => {
+          setEscrowPda(String(derivedAddress));
+        })
+        .catch(() => {
+          setEscrowPda(null);
+        });
     }
 
     setIsReady(true);
@@ -65,17 +84,25 @@ export default function ReviewLaundryTaskPage() {
   const walletConnected =
     mounted && Boolean(connectedWallet?.signer);
 
-  const escrowWalletConnected =
-    walletConnected && connectedAddress === ESCROW_ADDRESS;
+  const requesterWalletConnected =
+    walletConnected && connectedAddress === requesterAddress;
+  const programConfigured = isEscrowProgramConfigured();
 
   async function approveAndReleasePayment() {
     if (!connectedWallet?.signer) {
       return;
     }
 
-    if (connectedAddress !== ESCROW_ADDRESS) {
+    if (taskId === null) {
       setTransactionError(
-        "Switch Phantom to the Escrow account, then reconnect it.",
+        "No funded smart-contract escrow was found. Fund the TaskCard first.",
+      );
+      return;
+    }
+
+    if (connectedAddress !== requesterAddress) {
+      setTransactionError(
+        "Connect the same Olivia wallet that originally funded this TaskCard.",
       );
       return;
     }
@@ -84,23 +111,14 @@ export default function ReviewLaundryTaskPage() {
     setTransactionError(null);
 
     try {
-      const workerPaymentInstruction =
-        getTransferSolInstruction({
-          source: connectedWallet.signer,
-          destination: address(SAM_ADDRESS),
-          amount: lamports(WORKER_PAYMENT),
-        });
-
-      const requesterRefundInstruction =
-        getTransferSolInstruction({
-          source: connectedWallet.signer,
-          destination: address(OLIVIA_ADDRESS),
-          amount: lamports(REQUESTER_REFUND),
+      const releaseEscrowInstruction =
+        await getReleaseEscrowInstruction({
+          requester: connectedWallet.signer,
+          taskId,
         });
 
       const result = await client.sendTransaction([
-        workerPaymentInstruction,
-        requesterRefundInstruction,
+        releaseEscrowInstruction,
       ]);
 
       const signature = String(result.context.signature);
@@ -257,22 +275,23 @@ export default function ReviewLaundryTaskPage() {
               </h2>
 
               <p className="mt-3 leading-7 text-slate-600">
-                Connect the Escrow Phantom account. Approval will
-                create one Solana Devnet transaction that pays Sam
-                and returns the unused allowance to Olivia.
+                Connect the same Olivia wallet that funded the
+                TaskCard. The smart contract pays Sam, returns the
+                unused allowance and closes the escrow PDA.
               </p>
 
               <div className="mt-7 grid gap-6 sm:grid-cols-[1fr_320px]">
                 <div>
-                  <p className="font-bold">Required wallet</p>
+                  <p className="font-bold">Approver wallet</p>
                   <p className="mt-2 font-mono text-sm text-slate-600">
-                    {shortenAddress(ESCROW_ADDRESS)}
+                    {requesterAddress
+                      ? shortenAddress(requesterAddress)
+                      : "Fund the TaskCard first"}
                   </p>
 
-                  {walletConnected && !escrowWalletConnected ? (
+                  {walletConnected && !requesterWalletConnected ? (
                     <p className="mt-3 text-sm font-bold text-amber-700">
-                      The connected wallet is not the Escrow
-                      account.
+                      Connect the wallet that funded this TaskCard.
                     </p>
                   ) : null}
                 </div>
@@ -286,7 +305,7 @@ export default function ReviewLaundryTaskPage() {
                     Payment to Sam
                   </span>
                   <span className="font-bold">
-                    0.018 Devnet SOL
+                    {Number(WORKER_PAYMENT) / 1_000_000_000} Devnet SOL
                   </span>
                 </div>
 
@@ -295,7 +314,16 @@ export default function ReviewLaundryTaskPage() {
                     Return to Olivia
                   </span>
                   <span className="font-bold">
-                    0.0025 Devnet SOL
+                    {Number(REQUESTER_REFUND) / 1_000_000_000} Devnet SOL
+                  </span>
+                </div>
+
+                <div className="mt-4 flex justify-between border-t border-slate-200 pt-4">
+                  <span className="text-slate-600">
+                    Escrow PDA
+                  </span>
+                  <span className="font-mono text-sm font-bold">
+                    {escrowPda ? shortenAddress(escrowPda) : "Unavailable"}
                   </span>
                 </div>
 
@@ -341,18 +369,24 @@ export default function ReviewLaundryTaskPage() {
                   type="button"
                   onClick={approveAndReleasePayment}
                   disabled={
-                    !escrowWalletConnected ||
+                    !programConfigured ||
+                    taskId === null ||
+                    !requesterWalletConnected ||
                     releaseStatus === "releasing"
                   }
                   className="mt-6 w-full rounded-xl bg-emerald-600 px-6 py-4 text-lg font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {!walletConnected
-                    ? "Connect Escrow wallet to continue"
-                    : !escrowWalletConnected
-                      ? "Switch Phantom to Escrow"
-                      : releaseStatus === "releasing"
-                        ? "Confirm release in Phantom..."
-                        : "Approve work and release payment"}
+                  {!programConfigured
+                    ? "Escrow program not configured"
+                    : taskId === null
+                      ? "Fund the TaskCard first"
+                      : !walletConnected
+                        ? "Connect Olivia wallet to continue"
+                        : !requesterWalletConnected
+                          ? "Connect the funding wallet"
+                          : releaseStatus === "releasing"
+                            ? "Confirm release in Phantom..."
+                            : "Approve work and release payment"}
                 </button>
               )}
 
@@ -369,8 +403,8 @@ export default function ReviewLaundryTaskPage() {
 
               <p className="mt-4 text-center text-sm leading-6 text-slate-500">
                 Devnet SOL is test currency with no monetary value.
-                This prototype uses a demonstration custody wallet,
-                not a production smart-contract escrow.
+                Funds are controlled by the deployed CampusBounty
+                escrow program, not by a custody wallet.
               </p>
             </section>
           </div>
@@ -401,7 +435,7 @@ export default function ReviewLaundryTaskPage() {
               </p>
 
               <p className="mt-2 font-mono text-sm font-bold">
-                {shortenAddress(SAM_ADDRESS)}
+                {shortenAddress(String(WORKER_ADDRESS))}
               </p>
             </section>
 

@@ -49,10 +49,10 @@ The hackathon prototype follows one complete laundry TaskCard from application t
 1. **Sam**, the worker, applies for the TaskCard.
 2. **Olivia**, the requester, reviews the applicants and selects Sam.
 3. Both participants confirm the agreement.
-4. Olivia funds the demonstration custody wallet using Solana Devnet.
+4. Olivia locks the payment in a program-derived escrow account on Solana Devnet.
 5. Sam accepts the funded offer and submits completion proof.
 6. Olivia reviews and approves the completed work.
-7. The custody wallet pays Sam and returns the unused allowance to Olivia.
+7. The on-chain escrow program pays Sam and returns the unused allowance to Olivia.
 8. The resulting transaction is displayed on Solana Explorer.
 
 A **Reset demo** button on the login page allows judges to restart and replay the complete experience.
@@ -77,21 +77,16 @@ The prototype uses:
 
 - Solana Devnet
 - Phantom wallet connections
-- Native SOL transfer instructions
+- A native Rust Solana escrow program
+- Program-derived escrow accounts (PDAs)
 - Solana System Program
 - Public transaction verification through Solana Explorer
 
-### System Program ID
-
-```text
-11111111111111111111111111111111
-```
-
 The prototype creates genuine transactions on Solana Devnet. Devnet SOL is test currency and has no monetary value.
 
-For this hackathon demonstration, payment custody is represented by a dedicated Phantom account controlled by the demo operator. This is a demonstration custody wallet—not a production-ready or trustless smart-contract escrow.
+Each demo run creates a unique PDA owned by the CampusBounty program. A PDA has no private key, so no person or Phantom account can withdraw the funds. Only the program can release them, and only after the original requester signs the approval instruction.
 
-A production version would replace the demonstration account with an audited on-chain escrow program.
+The program source is in [`programs/campusbounty-escrow`](programs/campusbounty-escrow). The hackathon program is unaudited and uses Devnet test currency only.
 
 ## Demonstration Payment
 
@@ -100,8 +95,8 @@ The sample TaskCard commits `0.021 Devnet SOL`.
 After the requester approves the work:
 
 - `0.018 Devnet SOL` is paid to Sam.
-- `0.0025 Devnet SOL` is returned to Olivia as the unused allowance.
-- The custody wallet pays the Solana network fee.
+- `0.003 Devnet SOL` is returned to Olivia as the unused allowance.
+- The escrow account is closed and its rent is reclaimed by Olivia.
 
 The completed transaction can be inspected directly through Solana Explorer.
 
@@ -143,6 +138,7 @@ Users experience TaskCards, agreements, proof, and payment—not complicated blo
 - Solana React
 - Phantom Wallet
 - Solana Devnet
+- Rust
 - Vercel
 
 ## Local Setup
@@ -152,6 +148,7 @@ Users experience TaskCards, agreements, proof, and payment—not complicated blo
 - Node.js 20 or newer
 - npm
 - Phantom Wallet configured for Solana Devnet
+- A deployed copy of the CampusBounty escrow program
 
 ### Installation
 
@@ -159,6 +156,7 @@ Users experience TaskCards, agreements, proof, and payment—not complicated blo
 git clone https://github.com/samhuang00/CampusBounty.git
 cd CampusBounty
 npm install
+cp .env.example .env.local
 npm run dev
 ```
 
@@ -184,7 +182,8 @@ CampusBounty
 ├── Browser-based TaskCard state
 ├── Agreement and completion workflow
 ├── Phantom wallet connection
-├── Solana payment instructions
+├── Native Rust escrow program
+├── Unique program-derived escrow accounts
 └── Solana Explorer transaction verification
 ```
 
@@ -201,6 +200,7 @@ The current version demonstrates:
 - Two-party task agreements
 - Phantom wallet connections
 - Devnet payment funding
+- Program-controlled payment custody
 - Completion-proof submission
 - Requester approval
 - Worker payout
@@ -212,7 +212,7 @@ The current version demonstrates:
 
 The next version would introduce:
 
-- An audited Solana escrow program
+- A professional security audit for the Solana escrow program
 - University email verification
 - Persistent database storage
 - Production authentication

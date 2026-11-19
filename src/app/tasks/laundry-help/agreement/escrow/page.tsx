@@ -1,20 +1,23 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { address, lamports } from "@solana/kit";
-import { getTransferSolInstruction } from "@solana-program/system";
 import { useConnectedWallet } from "@solana/kit-plugin-wallet/react";
 import { useClient } from "@solana/react";
 import WalletConnectButton from "@/app/components/wallet-connect-button";
 import type { AppClient } from "@/app/providers";
-import { setLaundryTaskStatus } from "@/lib/campusBountyState";
+import {
+  createEscrowTaskId,
+  getEscrowTaskId,
+  setEscrowRequester,
+  setLaundryTaskStatus,
+} from "@/lib/campusBountyState";
+import {
+  getEscrowPda,
+  getInitializeEscrowInstruction,
+  isEscrowProgramConfigured,
+} from "@/lib/solanaEscrow";
 
 type FundingStatus = "idle" | "funding" | "funded";
-
-const ESCROW_ADDRESS =
-  "DdAidKA4KMx9b5Q1avZCBv9m1iXNvtw1NFVC7KqgCY3d";
-
-const ESCROW_AMOUNT = 21_000_000n;
 
 export default function EscrowPaymentPage() {
   const client = useClient<AppClient>();
@@ -27,6 +30,7 @@ export default function EscrowPaymentPage() {
     useState<string | null>(null);
   const [transactionError, setTransactionError] =
     useState<string | null>(null);
+  const [escrowPda, setEscrowPda] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -34,6 +38,7 @@ export default function EscrowPaymentPage() {
 
   const walletConnected =
     mounted && Boolean(connectedWallet?.signer);
+  const programConfigured = isEscrowProgramConfigured();
 
   async function securePayment() {
     if (!connectedWallet?.signer || fundingStatus !== "idle") {
@@ -44,15 +49,26 @@ export default function EscrowPaymentPage() {
     setTransactionError(null);
 
     try {
-      const transferInstruction = getTransferSolInstruction({
-        source: connectedWallet.signer,
-        destination: address(ESCROW_ADDRESS),
-        amount: lamports(ESCROW_AMOUNT),
-      });
+      const taskId = getEscrowTaskId() ?? createEscrowTaskId();
+      const initializeEscrowInstruction =
+        await getInitializeEscrowInstruction({
+          requester: connectedWallet.signer,
+          taskId,
+        });
+      const derivedEscrowAddress = await getEscrowPda(
+        taskId,
+        connectedWallet.signer.address,
+      );
+
+      setEscrowPda(String(derivedEscrowAddress));
 
       const result = await client.sendTransaction([
-        transferInstruction,
+        initializeEscrowInstruction,
       ]);
+
+      setEscrowRequester(
+        String(connectedWallet.account.address),
+      );
 
       const signature = String(result.context.signature);
 
@@ -128,8 +144,8 @@ export default function EscrowPaymentPage() {
           </h1>
 
           <p className="mt-3 max-w-3xl text-lg text-slate-600">
-            Fund the TaskCard before Sam begins working. This demo
-            records the payment transfer on Solana Devnet.
+            Fund the TaskCard before Sam begins working. A Solana
+            program locks the payment until Olivia approves the work.
           </p>
         </div>
 
@@ -226,7 +242,7 @@ export default function EscrowPaymentPage() {
 
                 <div className="mt-4 flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Demo amount sent
+                    Amount locked
                   </span>
                   <span className="font-bold">
                     0.021 Devnet SOL
@@ -235,10 +251,12 @@ export default function EscrowPaymentPage() {
 
                 <div className="mt-4 flex justify-between gap-4">
                   <span className="text-slate-600">
-                    Escrow wallet
+                    Program escrow PDA
                   </span>
                   <span className="font-mono text-sm font-bold">
-                    DdAi...CY3d
+                    {escrowPda
+                      ? `${escrowPda.slice(0, 4)}...${escrowPda.slice(-4)}`
+                      : "Derived at funding"}
                   </span>
                 </div>
               </div>
@@ -246,12 +264,12 @@ export default function EscrowPaymentPage() {
               {fundingStatus === "funded" ? (
                 <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
                   <p className="text-lg font-bold text-emerald-900">
-                    ✓ Payment recorded on Solana Devnet
+                    ✓ Payment locked by the escrow program
                   </p>
 
                   <p className="mt-2 text-emerald-800">
-                    The transaction was confirmed and the TaskCard
-                    is now funded.
+                    The PDA was created on Solana Devnet and the
+                    TaskCard is now funded.
                   </p>
 
                   {transactionSignature ? (
@@ -278,15 +296,18 @@ export default function EscrowPaymentPage() {
                   onClick={securePayment}
                   disabled={
                     !walletConnected ||
+                    !programConfigured ||
                     fundingStatus === "funding"
                   }
                   className="mt-6 w-full rounded-xl bg-emerald-600 px-6 py-4 text-lg font-bold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  {!walletConnected
-                    ? "Connect wallet to continue"
-                    : fundingStatus === "funding"
-                      ? "Confirm in Phantom..."
-                      : "Secure $21 in escrow"}
+                  {!programConfigured
+                    ? "Escrow program not configured"
+                    : !walletConnected
+                      ? "Connect wallet to continue"
+                      : fundingStatus === "funding"
+                        ? "Confirm in Phantom..."
+                        : "Secure $21 in escrow"}
                 </button>
               )}
 
@@ -302,9 +323,9 @@ export default function EscrowPaymentPage() {
               ) : null}
 
               <p className="mt-4 text-center text-sm leading-6 text-slate-500">
-                This prototype sends 0.021 Devnet SOL to a
-                demonstration custody wallet. Devnet SOL has no
-                monetary value.
+                The program stores 0.021 Devnet SOL in a unique PDA;
+                no person controls an escrow private key. Devnet SOL
+                has no monetary value.
               </p>
             </div>
           </section>
@@ -354,12 +375,12 @@ export default function EscrowPaymentPage() {
               </p>
 
               <h2 className="mt-4 text-xl font-bold">
-                Verifiable Devnet transaction
+                Program-controlled custody
               </h2>
 
               <p className="mt-4 leading-7 text-slate-300">
-                After Phantom confirms the transfer, the transaction
-                can be independently viewed on Solana Explorer.
+                The escrow PDA can release funds only through the
+                deployed CampusBounty program after Olivia signs.
               </p>
             </section>
 
